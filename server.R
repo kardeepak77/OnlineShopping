@@ -8,10 +8,42 @@
 #
 
 library(shiny)
+library(DT)
 
-# Define server logic required to draw a histogram
+
+#Load data
+shoppersIntDS<- read.csv("data/online_shoppers_intention.csv")
+
 shinyServer(function(input, output) {
 
+    #Table of selected dataset
+    output$shopperIntDT<- renderDataTable({
+        datasetInput()
+    })
 
+    datasetInput <- reactive({
+        #dtFull<- shoppersIntDS
+        if(length(input$cols) != 0) {
+            return(datatable(shoppersIntDS %>% dplyr::select(!!!input$cols), rownames = FALSE, filter = 'top'))
+        } 
+        return(datatable(shoppersIntDS, rownames = FALSE, filter = 'top'))
+    })
+    
+    # Downloadable csv of selected dataset 
+    output$downloadData <- downloadHandler(
+        filename = function() {
+            paste("OnlineShopping", ".csv", sep = "")
+        },
+        content = function(file) {
+            write.csv(as.data.frame( downloadDS() ), file, row.names = FALSE)
+        }
+    )
+
+    downloadDS <- reactive({
+        if(length(input$cols) != 0) {
+            return(shoppersIntDS %>% dplyr::select(!!!input$cols))
+        } 
+        return(shoppersIntDS)
+    })
 
 })
