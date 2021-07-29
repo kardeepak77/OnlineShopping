@@ -23,6 +23,35 @@ shinyUI(
         strong("Shopping Intention"),
         theme = shinytheme("united"),
         
+        tabPanel("Data Exploration",
+                 fluidPage(
+                     tags$div(
+                         h2("Exploratory analysis"),
+                         tags$body("This page allow the user to browse throughthe whole
+                                    dataset. Select columns, filter rows using column values as needed"),
+                         selectInput("varVisitorType", "Select the Visitor Type", 
+                                     selected = 1,
+                                     choices = c("All",levels(as.factor(shoppersIntDS$VisitorType))))
+                     ),
+                     fluidRow(
+                         column(6, tags$div(dataTableOutput("summ"))),
+                         column(6, tags$div(tableOutput("visitorTypeByRev"))),
+                         #column(3, tags$div(dataTableOutput("summ")))
+                     ),
+                     fluidRow(
+                     column(4, tags$div(downloadButton(outputId = "downAdministrativeDurationByRev", label = "Download the plot"), plotlyOutput("administrativeDurationByRev"))),
+                     column(4, tags$div(downloadButton(outputId = "downInformationalDurationByRev", label = "Download the plot"), plotOutput("informationalDurationByRev"))),
+                     column(4, tags$div(downloadButton(outputId = "downProductDurationByRev", label = "Download the plot"), plotOutput("productDurationByRev")))
+                     ),
+                     fluidRow(
+                         column(4, tags$div(downloadButton(outputId = "downAdministrativeHist", label = "Download the plot"), plotOutput("administrativeHist"))),
+                         column(4, tags$div(downloadButton(outputId = "downInformationalHist", label = "Download the plot"), plotOutput("informationalHist"))),
+                         column(4, tags$div(downloadButton(outputId = "downProductRelatedHist", label = "Download the plot"), plotOutput("productRelatedHist")))
+                     ),
+                     
+                     
+                 )
+        ),
         tabPanel("About",
                  fluidPage(
                      fluidRow(column(
@@ -181,45 +210,12 @@ shinyUI(
                      tags$body("This page allow the user to browse throughthe whole
                                     dataset. Select columns, filter rows using column values as needed")
                  ),
-                 
-                     
-                     # box(
-                     #     br(),
-                     #     h4("Select options below to subset the data"),
-                     #     br(),
-                     #     
-                     #     varSelectInput(
-                     #         "dtsetvar",
-                     #         "Select variables to subset",
-                     #         shoppersIntDS,
-                     #         multiple = T
-                     #     ),
-                     #     
-                     #     selectInput(
-                     #         "dtyear",
-                     #         "Select the Year",
-                     #         choices = levels(as.factor(shoppersIntDS$yearID)),
-                     #         multiple = T
-                     #     ),
-                     #     selectInput(
-                     #         "dtteam",
-                     #         "Select the Team ID",
-                     #         choices = levels(as.factor(shoppersIntDS$teamID)),
-                     #         multiple = T
-                     #     ),
-                     #     
-                     # ),
-                     
+                  
                  tags$div( 
                      br(),
                      fluidRow(column(6, varSelectInput("cols", "Select Columns", shoppersIntDS, multiple = T)),
                               column(6, downloadButton("downloadData", "Download", class = "btn-primary" )))
-                     
-                     #selectInput("dtyear", "Select the Year", 
-                     #            choices = levels(as.factor(mbl_pitching$yearID)), multiple = T),
-                     #selectInput("dtteam", "Select the Team ID", 
-                     #            choices = levels(as.factor(mbl_pitching$teamID)), multiple = T),
-                     
+                    
                  ),
                  
                      tags$div(
@@ -228,7 +224,7 @@ shinyUI(
                      )
 
                  )),
-        tabPanel("Data Exploration", tabName = "dataexpTab"),
+        
         tabPanel("Modeling", tabName = "modelTab"),
         tabPanel("Prediction", tabName = "predTab"),
         tabPanel("Plot",
