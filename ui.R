@@ -12,6 +12,7 @@ library(shiny)
 library(shinythemes)
 library(DT)
 #library(bs4Dash)
+library(plotly)
 
 #Load data
 shoppersIntDS<- read.csv("data/online_shoppers_intention.csv")
@@ -29,24 +30,34 @@ shinyUI(
                          h2("Exploratory analysis"),
                          tags$body("This page allow the user to browse throughthe whole
                                     dataset. Select columns, filter rows using column values as needed"),
-                         selectInput("varVisitorType", "Select the Visitor Type", 
-                                     selected = 1,
-                                     choices = c("All",levels(as.factor(shoppersIntDS$VisitorType))))
                      ),
                      fluidRow(
-                         column(6, tags$div(dataTableOutput("summ"))),
-                         column(6, tags$div(tableOutput("visitorTypeByRev"))),
+                         column(6, tableOutput("visitorTypeByRev")),
+                         column(6, tableOutput("visitorTypeByWeekend"))
+                         
+                     ),
+                     tags$div(selectInput("varVisitorType", "Select the Visitor Type", 
+                                          selected = 1,
+                                          choices = c("All",levels(as.factor(shoppersIntDS$VisitorType))))),
+                     fluidRow(
+                         #column(4, tags$div(dataTableOutput("summ"))),
+                         column(12, tags$div(plotlyOutput("monthRevBox"))),
                          #column(3, tags$div(dataTableOutput("summ")))
                      ),
                      fluidRow(
-                     column(4, tags$div(downloadButton(outputId = "downAdministrativeDurationByRev", label = "Download the plot"), plotlyOutput("administrativeDurationByRev"))),
-                     column(4, tags$div(downloadButton(outputId = "downInformationalDurationByRev", label = "Download the plot"), plotOutput("informationalDurationByRev"))),
-                     column(4, tags$div(downloadButton(outputId = "downProductDurationByRev", label = "Download the plot"), plotOutput("productDurationByRev")))
+                         column(4, tags$div(downloadButton(outputId = "downAdministrativeDurationByRev", label = ""), plotlyOutput("administrativeDurationByRev"))),
+                         column(4, tags$div(downloadButton(outputId = "downInformationalDurationByRev", label = "Download the plot"), plotOutput("informationalDurationByRev"))),
+                         column(4, tags$div(downloadButton(outputId = "downProductDurationByRev", label = "Download the plot"), plotOutput("productDurationByRev")))
                      ),
                      fluidRow(
                          column(4, tags$div(downloadButton(outputId = "downAdministrativeHist", label = "Download the plot"), plotOutput("administrativeHist"))),
                          column(4, tags$div(downloadButton(outputId = "downInformationalHist", label = "Download the plot"), plotOutput("informationalHist"))),
                          column(4, tags$div(downloadButton(outputId = "downProductRelatedHist", label = "Download the plot"), plotOutput("productRelatedHist")))
+                     ),
+                     fluidRow(
+                         tags$div(dataTableOutput("summ")),
+                         #column(12, tags$div(plotlyOutput("monthRevBox"))),
+                         #column(3, tags$div(dataTableOutput("summ")))
                      ),
                      
                      
@@ -205,39 +216,166 @@ shinyUI(
         
         tabPanel("Data",
                  fluidPage(
-                 tags$div(
-                     h2("Dataset"),
-                     tags$body("This page allow the user to browse throughthe whole
-                                    dataset. Select columns, filter rows using column values as needed")
-                 ),
-                  
-                 tags$div( 
-                     br(),
-                     fluidRow(column(6, varSelectInput("cols", "Select Columns", shoppersIntDS, multiple = T)),
-                              column(6, downloadButton("downloadData", "Download", class = "btn-primary" )))
-                    
-                 ),
-                 
                      tags$div(
-                          
-                          dataTableOutput("shopperIntDT")
+                         h2("Dataset"),
+                         tags$body("This page allow the user to browse throughthe whole
+                                    dataset. Select columns, filter rows using column values as needed")
+                     ),
+                     
+                     tags$div( 
+                         br(),
+                         fluidRow(column(6, varSelectInput("cols", "Select Columns", shoppersIntDS, multiple = T)),
+                                  column(6, downloadButton("downloadData", "Download", class = "btn-primary" )))
+                         
+                     ),
+                     
+                     tags$div(
+                         
+                         dataTableOutput("shopperIntDT")
                      )
-
+                     
                  )),
         
-        tabPanel("Modeling", tabName = "modelTab"),
-        tabPanel("Prediction", tabName = "predTab"),
-        tabPanel("Plot",
+        #tabPanel("Modeling", tabName = "modelTab"),
+        tabPanel("Modeling", 
                  fluidPage(
-                     sidebarPanel(
-                         textInput("txt", "Text input:", "text here"),
-                         sliderInput("slider", "Slider input:", 1, 100, 30),
-                         actionButton("action", "Button"),
-                         actionButton("action2", "Button2", class = "btn-primary")
-                     ),
-                     mainPanel(tabsetPanel(tabPanel("Tab 1"),
-                                           tabPanel("Tab 2")))
-                 ))
+                     fluidPage(
+                         tabsetPanel(
+                             tabPanel(
+                                 "Modeling Info",
+                                 tags$div("Generalized Linear Model for Binary Classification"),
+                                 tags$div("Classification Tree Model"),
+                                 tags$div("Random Forest Model")
+                                 ),
+                             tabPanel("Model Fitting",
+                                      fluidPage(
+                                          sliderInput("sliderSubset", "% Of Dataset to use for Training:", 50, 90, 70, step=5),
+                                          tags$body("Restricting use to use more than 50% but less than 90% of data as Training, to ensure we have enough data for training & prediction."),
+                                          varSelectInput("colsForModel", "Select Columns", shoppersIntDS %>% select(-Revenue), multiple = T),
+                                          textInput("txt", "Text input:", "text here"),
+                                          actionButton("action", "Button"),
+                                          actionButton("action2", "Button2", class = "btn-primary"),
+                                          #verbatimTextOutput ("logisticFitSummary"),
+                                          #verbatimTextOutput ("ClassificationTreeSummary")
+                                          verbatimTextOutput ("RFTreeSummary")
+                                      )
+                                      ),
+                             tabPanel("Prediction",
+                                      sidebarLayout(
+                                          sidebarPanel(
+                                              #conditionalPanel(condition="input.action=='original dataset'", 
+                                                               conditionalPanel(condition="input.colsForModel.includes('Administrative')",
+                                                                                sliderInput("selectAdministrative", "Administrative:", 
+                                                                                            min = 0, max = 27, 
+                                                                                            value = 4, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Administrative_Duration')",
+                                                                                sliderInput("selectAdministrative_Duration", "Administrative_Duration:", 
+                                                                                            min = 0., max = 3400, 
+                                                                                            value = 10, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Informational')",
+                                                                                sliderInput("selectInformational", "Informational:", 
+                                                                                            min = 0., max = 24, 
+                                                                                            value = 11, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Informational_Duration')",
+                                                                                sliderInput("selectInformational_Duration", "Informational_Duration:", 
+                                                                                            min = 0., max = 2550, 
+                                                                                            value = 0, step = 1)             
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('ProductRelated')",
+                                                                                sliderInput("selectProductRelated", "ProductRelated:", 
+                                                                                            min = 0., max = 705, 
+                                                                                            value = 1, step = 0.1)                 
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('ProductRelated_Duration')",
+                                                                                sliderInput("selectProductRelated_Duration", "ProductRelated_Duration:", 
+                                                                                            min = 2, max = 63974, 
+                                                                                            value = 6, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('BounceRates')",
+                                                                                sliderInput("selectBounceRates", "BounceRates:", 
+                                                                                            min = 0, max = 0.2, 
+                                                                                            value = 0.1, step = 0.01)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('ExitRates')",
+                                                                                sliderInput("selectExitRates", "ExitRates:", 
+                                                                                            min = 0, max = 0.2, 
+                                                                                            value = 0.1, step = 0.01)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('PageValues')",
+                                                                                sliderInput("selectPageValues", "PageValues:", 
+                                                                                            min = 1, max = 362, 
+                                                                                            value = 200, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('SpecialDay')",
+                                                                                sliderInput("selectSpecialDay", "SpecialDay:", 
+                                                                                            min = 0, max = 1, 
+                                                                                            value = 1, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Month')",
+                                                                                sliderInput("selectMonth", "Month:", 
+                                                                                            min = 0., max = 400, 
+                                                                                            value = 350, step = 50)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('OperatingSystems')",
+                                                                                sliderInput("selectOperatingSystems", "OperatingSystems:", 
+                                                                                            min =1, max = 8, 
+                                                                                            value = 1, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Browser')",
+                                                                                sliderInput("selectBrowser", "Browser:", 
+                                                                                            min = 1, max = 13, 
+                                                                                            value = 1, step = 50)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Region')",
+                                                                                sliderInput("selectRegion", "Region:", 
+                                                                                            min = 1., max = 9, 
+                                                                                            value = 2, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('TrafficType')",
+                                                                                sliderInput("selectTrafficType", "TrafficType:", 
+                                                                                            min = 1, max = 20, 
+                                                                                            value = 1, step = 1)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('VisitorType')",
+                                                                                sliderInput("selectVisitorType", "VisitorType:", 
+                                                                                            min = 0., max = 400, 
+                                                                                            value = 350, step = 50)
+                                                               ),
+                                                               conditionalPanel(condition="input.colsForModel.includes('Weekend')",
+                                                                                sliderInput("selectWeekend", "Weekend:", 
+                                                                                            min = 0., max = 400, 
+                                                                                            value = 350, step = 50)
+                                                               ),
+                            
+                                              #)
+                                          ),
+                                          mainPanel(tags$div("Hello"))
+                                      )
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      )
+                             )
+                         )
+                     )
+                 )
+        # tabPanel("Plot",
+        #          fluidPage(
+        #              sidebarPanel(
+        #                  textInput("txt", "Text input:", "text here"),
+        #                  sliderInput("slider", "Slider input:", 1, 100, 30),
+        #                  actionButton("action", "Button"),
+        #                  actionButton("action2", "Button2", class = "btn-primary")
+        #              ),
+        #              mainPanel(tabsetPanel(tabPanel("Tab 1"),
+        #                                    tabPanel("Tab 2")))
+        #          )
+        #          )
         
     )
 )
