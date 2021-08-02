@@ -139,8 +139,8 @@ shinyServer(function(input, output) {
     }
     
     #Box Plots
-    output$administrativeDurationByRev <- renderPlotly({
-        ggplotly(getggPlot("Administrative_Duration"))
+    output$administrativeDurationByRev <- renderPlot({
+        getggPlot("Administrative_Duration")
     })
     
     output$informationalDurationByRev <- renderPlot(getggPlot("Informational_Duration"))
@@ -231,12 +231,9 @@ shinyServer(function(input, output) {
         }
     )
     
-    #Fit logistic Regression
-    output$logisticFitSummary<- renderPrint({
-
-        #logisticModelFit <- glm(Revenue ~ ., data=shoppersIntDS, family="binomial")
-        #summary(logisticModelFit)
+    logisticFitSumm <- eventReactive(input$runModelsButton, {
         
+        set.seed(50)
         #Convert resonse "Revenue" as factor
         shoppersIntDS$Revenue <- factor(shoppersIntDS$Revenue)
         
@@ -244,19 +241,17 @@ shinyServer(function(input, output) {
         train <- sample(1:nrow(shoppersIntDS), nrow(shoppersIntDS)*(input$sliderSubset/100))
         shoppersIntDS_train <- shoppersIntDS[train,]
         shoppersIntDS_test <- shoppersIntDS[-train,]
+        #Revenue ~ !!!input$colsForModel , data = shoppersIntDS_train,
         
-        #Fit logistic regression
-        fit <- train(Revenue ~ ., data = shoppersIntDS_train, 
-                     method = "glm", 
-                     family = "binomial")
-        fit$results$Accuracy
-        summary(fit)
-        
+        #Fit logistic regression 
+        trainModelLog <- train(shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
+              shoppersIntDS_train[,"Revenue"],
+              method = "glm", 
+              family = "binomial")
         
     })
     
-    #Fit Classification Tree
-    output$ClassificationTreeSummary<- renderPrint({
+    cTFitSumm <- eventReactive(input$runModelsButton, {
         set.seed(50)
         #logisticModelFit <- glm(Revenue ~ ., data=shoppersIntDS, family="binomial")
         #summary(logisticModelFit)
@@ -270,21 +265,28 @@ shinyServer(function(input, output) {
         shoppersIntDS_test <- shoppersIntDS[-train,]
         
         #Fit Classification Tree
-        cTFit <- train(Revenue ~ ., data = shoppersIntDS_train,
-                      method = "rpart",
-                      trControl = trainControl(method = "repeatedcv",
-                                               number = 10),
-                      preProcess = c("center", "scale"))
-                     # tuneGrid = data.frame(cp = seq(0.01, 0.3, by=0.01)))
+        train(shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
+              shoppersIntDS_train[,"Revenue"],
+                       method = "rpart",
+                       trControl = trainControl(method = "repeatedcv",
+                                                number = 10),
+                       preProcess = c("center", "scale"))
+        # tuneGrid = data.frame(cp = seq(0.01, 0.3, by=0.01)))
         
         #fit$results$Accuracy
-        cTFit
-    
+        #cTFit
+        #list("Fit Statistics: Accuracy" = cTFit$results$Accuracy[1], "Model Summary"= cTFit)
+        
     })
     
-    #Fit Classification Tree
-    output$RFTreeSummary<- renderPrint({
+    rfFitSumm <- eventReactive(input$runModelsButton, {
         set.seed(50)
+        # Create a Progress object
+        #progress <- shiny::Progress$new()
+        # Make sure it closes when we exit this reactive, even if there's an error
+        #on.exit(progress$close())
+        
+        #progress$inc(0.1, detail = paste("Building Random Forest Model"))
         #logisticModelFit <- glm(Revenue ~ ., data=shoppersIntDS, family="binomial")
         #summary(logisticModelFit)
         
@@ -297,14 +299,37 @@ shinyServer(function(input, output) {
         shoppersIntDS_test <- shoppersIntDS[-train,]
         
         #Fit logistic regression
-        rfFit <- train( Revenue ~., data= head(shoppersIntDS,200),
+        #withProgress("Model is being Trained", value = 1.0, {
+        train( shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
+               shoppersIntDS_train[,"Revenue"],
                         method="rf",
                         trControl = trainControl(method="repeatedcv", number=2),
                         preProcess= c("center","scale"),
-                        tuneGrid = data.frame(mtry = 2))
-        rfFit
+                        tuneGrid = data.frame(mtry = input$varmtry))
+        #})
+        #rfFit
+        #paste0( fit$results$Accuracy, "\n", rfFit)
+        
     })
     
-
+    output$logisticFitSummary<- renderPrint({
+        logisticFit <- logisticFitSumm()
+        list("Fit Statistics: Accuracy" = logisticFit$results$Accuracy, "Model Summary"= logisticFit)
+    })
+    
+    output$ClassificationTreeSummary<- renderPrint({
+        cTFit <- cTFitSumm()
+        list("Fit Statistics: Accuracy" = cTFit$results$Accuracy[1], "Model Summary"= cTFit)
+    })
+    
+    output$RFTreeSummary<- renderPrint({
+        rfFit <- rfFitSumm()
+        list("Fit Statistics: Accuracy" = rfFit$results$Accuracy, "Model Summary"= rfFit)
+    })
+    
+    output$mtryInput <- renderUI({
+        if(as.numeric(length(input$colsForModel)) > 0)
+            numericInput("varmtry", "Radom Forest Tunning Parameter mtry:", 1, min = 1, max = as.numeric(length(input$colsForModel)))
+    })
     
 })

@@ -8,11 +8,10 @@
 #
 
 library(shiny)
-#library(shinydashboard)
 library(shinythemes)
 library(DT)
-#library(bs4Dash)
 library(plotly)
+library(shinycssloaders)
 
 #Load data
 shoppersIntDS<- read.csv("data/online_shoppers_intention.csv")
@@ -32,8 +31,8 @@ shinyUI(
                                     dataset. Select columns, filter rows using column values as needed"),
                      ),
                      fluidRow(
-                         column(6, tableOutput("visitorTypeByRev")),
-                         column(6, tableOutput("visitorTypeByWeekend"))
+                         column(6, withSpinner(tableOutput("visitorTypeByRev"))),
+                         column(6, withSpinner(tableOutput("visitorTypeByWeekend")))
                          
                      ),
                      tags$div(selectInput("varVisitorType", "Select the Visitor Type", 
@@ -41,19 +40,21 @@ shinyUI(
                                           choices = c("All",levels(as.factor(shoppersIntDS$VisitorType))))),
                      fluidRow(
                          #column(4, tags$div(dataTableOutput("summ"))),
-                         column(12, tags$div(plotlyOutput("monthRevBox"))),
+                         column(12, tags$div(withSpinner(plotlyOutput("monthRevBox")))),
                          #column(3, tags$div(dataTableOutput("summ")))
                      ),
+                     br(),
                      fluidRow(
-                         column(4, tags$div(downloadButton(outputId = "downAdministrativeDurationByRev", label = ""), plotlyOutput("administrativeDurationByRev"))),
-                         column(4, tags$div(downloadButton(outputId = "downInformationalDurationByRev", label = "Download the plot"), plotOutput("informationalDurationByRev"))),
-                         column(4, tags$div(downloadButton(outputId = "downProductDurationByRev", label = "Download the plot"), plotOutput("productDurationByRev")))
-                     ),
-                     fluidRow(
-                         column(4, tags$div(downloadButton(outputId = "downAdministrativeHist", label = "Download the plot"), plotOutput("administrativeHist"))),
-                         column(4, tags$div(downloadButton(outputId = "downInformationalHist", label = "Download the plot"), plotOutput("informationalHist"))),
-                         column(4, tags$div(downloadButton(outputId = "downProductRelatedHist", label = "Download the plot"), plotOutput("productRelatedHist")))
-                     ),
+                                column(4, align="center", tags$div( withSpinner(plotOutput("administrativeDurationByRev")), downloadButton(outputId = "downAdministrativeDurationByRev", label = "Download the plot"))),
+                                column(4, align="center", tags$div(withSpinner(plotOutput("informationalDurationByRev")), downloadButton(outputId = "downInformationalDurationByRev", label = "Download the plot"))),
+                                column(4, align="center", tags$div(withSpinner(plotOutput("productDurationByRev")), downloadButton(outputId = "downProductDurationByRev", label = "Download the plot")))
+                         ),
+                     br(),
+                         fluidRow(
+                             column(4, align="center", tags$div(withSpinner(plotOutput("administrativeHist")),downloadButton(outputId = "downAdministrativeHist", label = "Download the plot"))),
+                             column(4, align="center", tags$div(withSpinner(plotOutput("informationalHist")),downloadButton(outputId = "downInformationalHist", label = "Download the plot"))),
+                             column(4, align="center", tags$div(withSpinner(plotOutput("productRelatedHist")),downloadButton(outputId = "downProductRelatedHist", label = "Download the plot")))
+                         ),
                      fluidRow(
                          tags$div(dataTableOutput("summ")),
                          #column(12, tags$div(plotlyOutput("monthRevBox"))),
@@ -249,15 +250,30 @@ shinyUI(
                                  ),
                              tabPanel("Model Fitting",
                                       fluidPage(
+                                          fluidRow(
                                           sliderInput("sliderSubset", "% Of Dataset to use for Training:", 50, 90, 70, step=5),
                                           tags$body("Restricting use to use more than 50% but less than 90% of data as Training, to ensure we have enough data for training & prediction."),
                                           varSelectInput("colsForModel", "Select Columns", shoppersIntDS %>% select(-Revenue), multiple = T),
-                                          textInput("txt", "Text input:", "text here"),
-                                          actionButton("action", "Button"),
-                                          actionButton("action2", "Button2", class = "btn-primary"),
+                                          #textInput("txt", "Text input:", "text here"),
+                                          uiOutput("mtryInput"),
+                                          #numericInput("varmtry", "mtry:", 1, min = 1, max = "length(input.colsForModel)"),
+                                          #actionButton("action", "Button"),
+                                          actionButton("runModelsButton", "Run Models", class = "btn-primary"),
                                           #verbatimTextOutput ("logisticFitSummary"),
                                           #verbatimTextOutput ("ClassificationTreeSummary")
-                                          verbatimTextOutput ("RFTreeSummary")
+                                          #verbatimTextOutput ("RFTreeSummary")
+                                          ),
+                                          fluidRow(
+                                              column(4,
+                                                     h3("Logistic Regression"),
+                                                     verbatimTextOutput ("logisticFitSummary")),
+                                              column(4,
+                                                     h3("Classification Tree"),
+                                                     verbatimTextOutput ("ClassificationTreeSummary")),
+                                              column(4,
+                                                     h3("Random Forest"),
+                                                     verbatimTextOutput ("RFTreeSummary")),
+                                          )
                                       )
                                       ),
                              tabPanel("Prediction",
