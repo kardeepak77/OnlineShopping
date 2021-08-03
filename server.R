@@ -231,6 +231,38 @@ shinyServer(function(input, output) {
         }
     )
     
+    userInput <- reactive({
+        # Assign values to corresponding variables
+        i <- 0
+        tmp_values <- c()
+        for (x in input$colsForModel) {
+            i <- i+1
+            tmp_values[i] <- eval(parse(text=paste0("input$select",x)))
+        }
+        tmp_values
+    })
+    
+
+    output$predictionOutput <- renderPrint({
+        df <- as.data.frame(t(userInput()))
+        colnames(df) <- input$colsForModel
+       
+     
+        if(input$varVisitorType == "Logistic regression") {
+            finalPred <- predict((logisticFitSumm()["CTReeModel"])$CTReeModel, df)
+            finalPred
+        } else if(input$varVisitorType == "Logistic regression") {
+            finalPred <- predict((logisticFitSumm()["RFModel"])$RFModel, df)
+            finalPred
+        } else {
+            finalPred <- predict((logisticFitSumm()["LRModel"])$LRModel, df)
+            finalPred
+            }
+        
+        
+
+    })
+    
     logisticFitSumm <- eventReactive(input$runModelsButton, {
         
         set.seed(50)
@@ -249,82 +281,63 @@ shinyServer(function(input, output) {
               method = "glm", 
               family = "binomial")
         
-    })
     
-    cTFitSumm <- eventReactive(input$runModelsButton, {
-        set.seed(50)
-        #logisticModelFit <- glm(Revenue ~ ., data=shoppersIntDS, family="binomial")
-        #summary(logisticModelFit)
-        
-        #Convert resonse "Revenue" as factor
-        shoppersIntDS$Revenue <- factor(shoppersIntDS$Revenue)
-        
-        #Create train and test datasets
-        train <- sample(1:nrow(shoppersIntDS), nrow(shoppersIntDS)*(input$sliderSubset/100))
-        shoppersIntDS_train <- shoppersIntDS[train,]
-        shoppersIntDS_test <- shoppersIntDS[-train,]
         
         #Fit Classification Tree
-        train(shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
+        trainModelCTree <- train(shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
               shoppersIntDS_train[,"Revenue"],
                        method = "rpart",
                        trControl = trainControl(method = "repeatedcv",
                                                 number = 10),
                        preProcess = c("center", "scale"))
-        # tuneGrid = data.frame(cp = seq(0.01, 0.3, by=0.01)))
         
-        #fit$results$Accuracy
-        #cTFit
-        #list("Fit Statistics: Accuracy" = cTFit$results$Accuracy[1], "Model Summary"= cTFit)
-        
-    })
-    
-    rfFitSumm <- eventReactive(input$runModelsButton, {
-        set.seed(50)
-        # Create a Progress object
-        #progress <- shiny::Progress$new()
-        # Make sure it closes when we exit this reactive, even if there's an error
-        #on.exit(progress$close())
-        
-        #progress$inc(0.1, detail = paste("Building Random Forest Model"))
-        #logisticModelFit <- glm(Revenue ~ ., data=shoppersIntDS, family="binomial")
-        #summary(logisticModelFit)
-        
-        #Convert resonse "Revenue" as factor
-        shoppersIntDS$Revenue <- factor(shoppersIntDS$Revenue)
-        
-        #Create train and test datasets
-        train <- sample(1:nrow(shoppersIntDS), nrow(shoppersIntDS)*(input$sliderSubset/100))
-        shoppersIntDS_train <- shoppersIntDS[train,]
-        shoppersIntDS_test <- shoppersIntDS[-train,]
         
         #Fit logistic regression
-        #withProgress("Model is being Trained", value = 1.0, {
-        train( shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
+
+        trainModelRF <- train( shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
                shoppersIntDS_train[,"Revenue"],
                         method="rf",
                         trControl = trainControl(method="repeatedcv", number=2),
                         preProcess= c("center","scale"),
                         tuneGrid = data.frame(mtry = input$varmtry))
-        #})
-        #rfFit
-        #paste0( fit$results$Accuracy, "\n", rfFit)
+        
+        #Prediction on Test set
+        prediction <- predict(trainModelLog, newdata = shoppersIntDS_test)
+        logPredOutPut <- postResample(pred = prediction, obs = shoppersIntDS_test$Revenue)
+        
+        prediction <- predict(trainModelCTree, newdata = shoppersIntDS_test)
+        CTreePredOutPut <- postResample(pred = prediction, obs = shoppersIntDS_test$Revenue)
+        
+        prediction <- predict(trainModelRF, newdata = shoppersIntDS_test)
+        RFPredOutPut <- postResample(pred = prediction, obs = shoppersIntDS_test$Revenue)
+        
+        bestPredModel <- which.max(c(as.numeric(logPredOutPut[1]), as.numeric(CTreePredOutPut[1]), as.numeric(RFPredOutPut[1])))
+        
+        print(bestPredModel)
+        list(LRModel = trainModelLog, CTReeModel = trainModelCTree, RFModel = trainModelRF, 
+             logPred = logPredOutPut, CTReePred = CTreePredOutPut, RFPred = RFPredOutPut, bestModel = bestPredModel)
         
     })
     
     output$logisticFitSummary<- renderPrint({
-        logisticFit <- logisticFitSumm()
-        list("Fit Statistics: Accuracy" = logisticFit$results$Accuracy, "Model Summary"= logisticFit)
+        logisticFit <- logisticFitSumm()["LRModel"]
+        list("Fit Statistics: Accuracy" = logisticFit$LRModel$results$Accuracy, "Model Summary"= logisticFit$LRModel , "Prediction Results" = logisticFitSumm()["logPred"])
     })
     
     output$ClassificationTreeSummary<- renderPrint({
-        cTFit <- cTFitSumm()
-        list("Fit Statistics: Accuracy" = cTFit$results$Accuracy[1], "Model Summary"= cTFit)
+        cTFit <- logisticFitSumm()["CTReeModel"]
+        list("Fit Statistics: Accuracy" = cTFit$CTReeModel$results$Accuracy[1], "Model Summary"= cTFit$CTReeModel, "Prediction Results" = logisticFitSumm()["CTReePred"])
     })
     
     output$RFTreeSummary<- renderPrint({
-        rfFit <- rfFitSumm()
-        list("Fit Statistics: Accuracy" = rfFit$results$Accuracy, "Model Summary"= rfFit)
+        rfFit <- logisticFitSumm()["RFModel"]
+        list("Fit Statistics: Accuracy" = rfFit$RFModel$results$Accuracy, "Model Summary"= rfFit$RFModel, "Prediction Results" = logisticFitSumm()["RFPred"])
+    })
+    
+    output$TestSummary<- renderPrint({
+        bModel <- logisticFitSumm()
+        bModelText <- switch(bModel$bestModel,"Logistic regression","Classification Tree","Random Forest")
+        paste0("Best Performing Model is : ", bModelText)
     })
     
     output$mtryInput <- renderUI({

@@ -261,7 +261,7 @@ shinyUI(
                                           actionButton("runModelsButton", "Run Models", class = "btn-primary"),
                                           #verbatimTextOutput ("logisticFitSummary"),
                                           #verbatimTextOutput ("ClassificationTreeSummary")
-                                          #verbatimTextOutput ("RFTreeSummary")
+                                          verbatimTextOutput ("TestSummary")
                                           ),
                                           fluidRow(
                                               column(4,
@@ -368,7 +368,12 @@ shinyUI(
                             
                                               #)
                                           ),
-                                          mainPanel(tags$div("Hello"))
+                                          mainPanel(
+                                              tags$div(selectInput("varModelSelector", "Select the Model For Prediction", 
+                                                                   selected = 1,
+                                                                   choices = c("Logistic regression","Classification Tree","Random Forest"))),
+                                              verbatimTextOutput("predictionOutput")
+                                              )
                                       )
                                       
                                       
