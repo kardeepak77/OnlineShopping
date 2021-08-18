@@ -11,7 +11,7 @@ library(shiny)
 library(shinythemes)
 library(DT)
 library(plotly)
-#library(shinycssloaders)
+library(shinycssloaders)
 
 #Load data
 shoppersIntDS<- read.csv("data/online_shoppers_intention.csv")
