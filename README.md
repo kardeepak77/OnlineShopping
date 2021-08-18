@@ -14,7 +14,7 @@ The following packages are required to run the app
 - `plotly`: Hovering with text onto the plots
 
 ## Codes for installing packages
-- `install.packages("shiny", "shinythemes", "DT", "dplyr", "ggplot2","caret", "plotly")`  
+- `install.packages("shiny", "shinythemes", "DT", "dplyr", "ggplot2","caret", "plotly", "shinycssloaders")`  
 
 ## Cod for running App
 `shiny::runGitHub("OnlineShopping", "kardeepak77", ref = "main")`
