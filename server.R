@@ -56,15 +56,10 @@ shinyServer(function(input, output) {
                       scrollY = "500px",
                       fixedHeader = TRUE,
                       class = 'cell-border stripe'
-                      #fixedColumns = list(
-                      #    leftColumns = 3,
-                      #    heightMatch = 'none'
-                      #)
                   )
         )
     })
     datasetInput <- reactive({
-        #dtFull<- shoppersIntDS
         if (length(input$cols) != 0) {
             return(
                 datatable(
@@ -297,14 +292,14 @@ shinyServer(function(input, output) {
         tmp_values
     })
     
-
+    
     output$predictionOutput <- renderPrint({
         #df <- as.data.frame(t(userInput()))
         df <- userInput()
-    #    print(df)
+        #    print(df)
         colnames(df) <- input$colsForModel
-       
-     
+        
+        
         if(input$varVisitorType == "Classification Tree") {
             finalPred <- predict((logisticFitSumm()["CTReeModel"])$CTReeModel, df)
             finalPred
@@ -315,14 +310,14 @@ shinyServer(function(input, output) {
             finalPred <- predict((logisticFitSumm()["LRModel"])$LRModel, df)
             #finalPred <- str(df)
             finalPred
-            }
+        }
         
         
-
+        
     })
     
     logisticFitSumm <- eventReactive(input$runModelsButton, {
-    #logisticFitSumm <- observeEvent(input$runModelsButton, {
+        #logisticFitSumm <- observeEvent(input$runModelsButton, {
         
         set.seed(50)
         #Convert resonse "Revenue" as factor
@@ -336,29 +331,29 @@ shinyServer(function(input, output) {
         
         #Fit logistic regression 
         trainModelLog <- train(shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
-              shoppersIntDS_train[,"Revenue"],
-              method = "glm", 
-              family = "binomial")
+                               shoppersIntDS_train[,"Revenue"],
+                               method = "glm", 
+                               family = "binomial")
         
-    
+        
         
         #Fit Classification Tree
         trainModelCTree <- train(shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
-              shoppersIntDS_train[,"Revenue"],
-                       method = "rpart",
-                       trControl = trainControl(method = "repeatedcv",
-                                                number = 10),
-                       preProcess = c("center", "scale"))
+                                 shoppersIntDS_train[,"Revenue"],
+                                 method = "rpart",
+                                 trControl = trainControl(method = "repeatedcv",
+                                                          number = 10),
+                                 preProcess = c("center", "scale"))
         
         
         #Fit logistic regression
-
+        
         trainModelRF <- train( shoppersIntDS_train %>% dplyr::select(!!!input$colsForModel),
-               shoppersIntDS_train[,"Revenue"],
-                        method="rf",
-                        trControl = trainControl(method="repeatedcv", number=2),
-                        preProcess= c("center","scale"),
-                        tuneGrid = data.frame(mtry = input$varmtry))
+                               shoppersIntDS_train[,"Revenue"],
+                               method="rf",
+                               trControl = trainControl(method="repeatedcv", number=2),
+                               preProcess= c("center","scale"),
+                               tuneGrid = data.frame(mtry = input$varmtry))
         
         #Prediction on Test set
         prediction <- predict(trainModelLog, newdata = shoppersIntDS_test)
