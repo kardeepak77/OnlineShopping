@@ -11,10 +11,18 @@ library(shiny)
 library(shinythemes)
 library(DT)
 library(plotly)
-library(shinycssloaders)
+#library(shinycssloaders)
 
 #Load data
 shoppersIntDS<- read.csv("data/online_shoppers_intention.csv")
+#Month data has June has incorrect abbrevation. Fix that and create factor for month.
+shoppersIntDS[shoppersIntDS$Month == "June", ]$Month = "Jun"
+shoppersIntDS$Month <- factor(shoppersIntDS$Month, levels = c("Feb", "Mar","May","Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec") )
+
+shoppersIntDS$VisitorType <- factor(shoppersIntDS$VisitorType)
+shoppersIntDS$Weekend <- factor(shoppersIntDS$Weekend)
+
+#month.abb
 #predvar<-levels (as.factor( mbl_pitching %>% filter(yearID==2015) %>% select(teamID)))
 
 
@@ -45,7 +53,7 @@ shinyUI(
                      ),
                      br(),
                      fluidRow(
-                                column(4, align="center", tags$div( withSpinner(plotOutput("administrativeDurationByRev")), downloadButton(outputId = "downAdministrativeDurationByRev", label = "Download the plot"))),
+                                column(4, align="center", tags$div(withSpinner(plotOutput("administrativeDurationByRev")), downloadButton(outputId = "downAdministrativeDurationByRev", label = "Download the plot"))),
                                 column(4, align="center", tags$div(withSpinner(plotOutput("informationalDurationByRev")), downloadButton(outputId = "downInformationalDurationByRev", label = "Download the plot"))),
                                 column(4, align="center", tags$div(withSpinner(plotOutput("productDurationByRev")), downloadButton(outputId = "downProductDurationByRev", label = "Download the plot")))
                          ),
@@ -229,11 +237,13 @@ shinyUI(
                                   column(6, downloadButton("downloadData", "Download", class = "btn-primary" )))
                          
                      ),
-                     
-                     tags$div(
-                         
-                         dataTableOutput("shopperIntDT")
+                     fluidRow(
+                         column(12, dataTableOutput("shopperIntDT"))
                      )
+                     # tags$div(
+                     #     
+                     #     dataTableOutput("shopperIntDT")
+                     # )
                      
                  )),
         
@@ -244,9 +254,67 @@ shinyUI(
                          tabsetPanel(
                              tabPanel(
                                  "Modeling Info",
-                                 tags$div("Generalized Linear Model for Binary Classification"),
-                                 tags$div("Classification Tree Model"),
-                                 tags$div("Random Forest Model")
+                                 br(),
+                                 tags$div("We will analyze 3 modeling approaches to predict with given online session will generate revenue or not."),
+                                 br(),
+                                 tags$div(
+                                     strong("1. Logistic Regression"),
+                                     tags$div("Logistic regression is type of Generalized Linear Regression Model and is type of supervised learning method. Generalized Linear Models allows response from non-normal distributions and support both categorical and continuous predictors. Logistic regression is used when response is binary, such as success / failure. Logistic Regression models success probability using the logistic function"),
+                                     tags$div("This function never goes below zero and above 1."),
+                                     
+                                     tags$div(
+                                     withMathJax(),
+                                     h3("Formula"),
+                                     
+                                     p("\\(\\log(\\frac{P}{1-P})=\\beta_0+\\beta_1*x_1+...+\\beta_p*x_p\\)"),
+                                     "where, P is sucess probability, ", 
+                                     span("\\(x_i\\)")," predictors,",
+                                     span("\\(\\beta_0\\)")," the intercept,",
+                                     span("\\(\\beta_i\\)"),"slops"),
+                                     
+                                     tags$div("This shows logit (log-odds) of success is linear in the parameters. Such logit function is also called a link function."),
+                                     strong("Advantages:"),
+                                     tags$ul(
+                                         tags$li("Allows modeling binary response which is non-normal distribution."),
+                                         tags$li("Model is simple to understand and is interpretable."),
+                                         tags$li("Coefficients/weights of model have meaning and helps understand how prediction is made.")
+                                     ),
+                                     strong("Disadvantages:"),
+                                     tags$ul(
+                                         tags$li("Logistic regression assumes that independent variables are linearly related with link function (log odds) of dependent variable."),
+                                         tags$li("Logistic regression requires no or minimal collinearity between independent variables."),
+                                         tags$li("Compared to Classification Tree/ Random forest techniques, logistic regression requires manual careful selection of independent variables.")
+                                     ),
+                                     strong("2. Classification Tree"),
+                                     tags$div("Classification Tree is a Tree based supervised learning method, in which predictor space is split into regions, and different predictions are made for each region. Predictions are made by identifying most prevalent class for a given region. For optimizing regions, Gini index or deviance is used.  Tree fitting is done by minimizing these majors."),
+                                     strong("Advantages:"),
+                                     tags$ul(
+                                         tags$li("Simple to understand and easy to interpret output"),
+                                         tags$li("Predictors doesn’t require scaling"),
+                                         tags$li("No statistical assumptions are necessary"),
+                                         tags$li("Has built in variable selection")
+                                     ),
+                                     strong("Disadvantages:"),
+                                     tags$ul(
+                                         tags$li("Small change in data results in vastly different fitted trees"),
+                                         tags$li("Trees usually requires pruning"),
+                                         tags$li("Require Greedy-algorithm")
+                                     ),
+                                     strong("3.	Random Forest"),
+                                     tags$div("Random Forest is tree based supervised learning method and uses Ensemble Learning technique. It uses same idea as bagging, where multiple trees are used to predict response and results are averaged. However, in Random Forest randomly selected subset of predictors are used for created multiple trees. Such random selection or predictors avoids strong predictors overpowering prediction. It also make bagged tree predictors more correlated."),
+                                     strong("Advantages:"),
+                                     tags$ul(
+                                         tags$li("Feature scaling is not required in case for Random forest."),
+                                         tags$li("Random forest can handle linear as well as non-linear parameters."),
+                                         tags$li("Random forest automatically takes care of outliers."),
+                                         tags$li("Compared to classification tree, Random Forest Is less impacted even if new data points are introduced in dataset.")
+                                     ),
+                                     strong("Disadvantages:"),
+                                     tags$ul(
+                                         tags$li("As Random Forest creates lot of trees, it’s computation resource heavy and takes longer to train compared to classification tree."),
+                                         tags$li("As Random forest uses many trees for prediction, prediction interpretability is lost."),
+                                     ),
+                                 ),
                                  ),
                              tabPanel("Model Fitting",
                                       fluidPage(
@@ -258,21 +326,22 @@ shinyUI(
                                           uiOutput("mtryInput"),
                                           #numericInput("varmtry", "mtry:", 1, min = 1, max = "length(input.colsForModel)"),
                                           #actionButton("action", "Button"),
-                                          actionButton("runModelsButton", "Run Models", class = "btn-primary"),
+                                          actionButton("runModelsButton", "Run Models", class = "btn-primary"), br(),
                                           #verbatimTextOutput ("logisticFitSummary"),
                                           #verbatimTextOutput ("ClassificationTreeSummary")
+                                          br(),
                                           verbatimTextOutput ("TestSummary")
                                           ),
                                           fluidRow(
                                               column(4,
                                                      h3("Logistic Regression"),
-                                                     verbatimTextOutput ("logisticFitSummary")),
+                                                     withSpinner(verbatimTextOutput ("logisticFitSummary"))),
                                               column(4,
                                                      h3("Classification Tree"),
-                                                     verbatimTextOutput ("ClassificationTreeSummary")),
+                                                     withSpinner(verbatimTextOutput ("ClassificationTreeSummary"))),
                                               column(4,
                                                      h3("Random Forest"),
-                                                     verbatimTextOutput ("RFTreeSummary")),
+                                                     withSpinner(verbatimTextOutput ("RFTreeSummary"))),
                                           )
                                       )
                                       ),
@@ -331,9 +400,9 @@ shinyUI(
                                                                                             value = 1, step = 1)
                                                                ),
                                                                conditionalPanel(condition="input.colsForModel.includes('Month')",
-                                                                                sliderInput("selectMonth", "Month:", 
-                                                                                            min = 0., max = 400, 
-                                                                                            value = 350, step = 50)
+                                                                                selectInput("selectMonth", "Month:", 
+                                                                                            selected = 1,
+                                                                                            choices = levels(shoppersIntDS$Month))
                                                                ),
                                                                conditionalPanel(condition="input.colsForModel.includes('OperatingSystems')",
                                                                                 sliderInput("selectOperatingSystems", "OperatingSystems:", 
@@ -356,19 +425,27 @@ shinyUI(
                                                                                             value = 1, step = 1)
                                                                ),
                                                                conditionalPanel(condition="input.colsForModel.includes('VisitorType')",
-                                                                                sliderInput("selectVisitorType", "VisitorType:", 
-                                                                                            min = 0., max = 400, 
-                                                                                            value = 350, step = 50)
+                                                                                #sliderInput("selectVisitorType", "VisitorType:", 
+                                                                                #            min = 0., max = 400, 
+                                                                                #            value = 350, step = 50)
+                                                                                selectInput("selectVisitorType", "VisitorType", 
+                                                                                            selected = 1,
+                                                                                            choices = levels(shoppersIntDS$VisitorType))
                                                                ),
                                                                conditionalPanel(condition="input.colsForModel.includes('Weekend')",
-                                                                                sliderInput("selectWeekend", "Weekend:", 
-                                                                                            min = 0., max = 400, 
-                                                                                            value = 350, step = 50)
+                                                                                #sliderInput("selectWeekend", "Weekend:", 
+                                                                                #            min = 0., max = 400, 
+                                                                                #            value = 350, step = 50)
+                                                                                selectInput("selectWeekend", "Weekend:", 
+                                                                                            selected = 1,
+                                                                                            choices = levels(shoppersIntDS$Weekend))
                                                                ),
                             
                                               #)
                                           ),
                                           mainPanel(
+                                              tags$div("Please Note: Model Fitting is pre-requist for performing Predictions."),
+                                              br(),
                                               tags$div(selectInput("varModelSelector", "Select the Model For Prediction", 
                                                                    selected = 1,
                                                                    choices = c("Logistic regression","Classification Tree","Random Forest"))),

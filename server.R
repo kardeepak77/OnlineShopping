@@ -10,7 +10,6 @@
 library(shiny)
 library(DT)
 library(dplyr)
-#library("tidyverse")
 library(ggplot2)
 library(plotly)
 library(caret)
@@ -18,16 +17,52 @@ library(caret)
 
 #Load data
 shoppersIntDS <- read.csv("data/online_shoppers_intention.csv")
+#Month data has June has incorrect abbrevation. Fix that and create factor for month.
+shoppersIntDS[shoppersIntDS$Month == "June", ]$Month = "Jun"
+shoppersIntDS$Month <- factor(shoppersIntDS$Month, levels = c("Feb", "Mar","May","Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec") )
+
+shoppersIntDS$VisitorType <- factor(shoppersIntDS$VisitorType)
+shoppersIntDS$Weekend <- factor(shoppersIntDS$Weekend)
+
 shopDS <- shoppersIntDS
 shopDS$Revenue <- as.factor(shopDS$Revenue)
 levels(shopDS$Revenue) <- c("No Revenue", "Revenue Generated")
 
 shinyServer(function(input, output) {
     #Table of selected dataset
-    output$shopperIntDT <- renderDataTable({
+    output$shopperIntDT1 <- renderDataTable({
         datasetInput()
     })
     
+    output$shopperIntDT <- renderDataTable({
+        dtDS <- shoppersIntDS
+        if (length(input$cols) != 0) {
+            dtDS <- shoppersIntDS %>% dplyr::select(!!!input$cols)
+        }
+        
+        datatable(dtDS, 
+                  rownames = FALSE,
+                  filter = 'top',
+                  extensions = c("FixedColumns", "FixedHeader", "Scroller"), 
+                  options = list(
+                      # dom = 't',
+                      # deferRender = TRUE,
+                      searching = TRUE,
+                      autoWidth = TRUE,
+                      # scrollCollapse = TRUE,
+                      rownames = FALSE,
+                      scroller = TRUE,
+                      scrollX = TRUE,
+                      scrollY = "500px",
+                      fixedHeader = TRUE,
+                      class = 'cell-border stripe'
+                      #fixedColumns = list(
+                      #    leftColumns = 3,
+                      #    heightMatch = 'none'
+                      #)
+                  )
+        )
+    })
     datasetInput <- reactive({
         #dtFull<- shoppersIntDS
         if (length(input$cols) != 0) {
@@ -35,7 +70,12 @@ shinyServer(function(input, output) {
                 datatable(
                     shoppersIntDS %>% dplyr::select(!!!input$cols),
                     rownames = FALSE,
-                    filter = 'top'
+                    filter = 'top',
+                    extensions = c("FixedColumns", "FixedHeader", "Scroller"),
+                    options = list(
+                        autoWidth = TRUE,
+                        scroller = TRUE,
+                        scrollX = TRUE)
                 )
             )
         }
@@ -114,8 +154,8 @@ shinyServer(function(input, output) {
         shopData <- shoppersIntDS
         
         #convert to month abb.
-        shopData[shopData$Month == "June", ]$Month = "Jun"
-        shopData$Month <- factor(shopData$Month, levels = month.abb)
+        #shopData[shopData$Month == "June", ]$Month = "Jun"
+        #shopData$Month <- factor(shopData$Month, levels = month.abb)
         #levels(shopData$Month) <- month.abb
         if (input$varVisitorType != "All") {
             shopData <-
@@ -234,6 +274,21 @@ shinyServer(function(input, output) {
     userInput <- reactive({
         # Assign values to corresponding variables
         i <- 0
+        tmp_values <- data.frame()
+        for (x in input$colsForModel) {
+            i <- i+1
+            if(i== 1) {
+                tmp_values <- data.frame(eval(parse(text=paste0("input$select",x))))
+            } else { 
+                tmp_values <- cbind(tmp_values, eval(parse(text=paste0("input$select",x))))
+            }
+        }
+        tmp_values
+    })
+    
+    userInput1 <- reactive({
+        # Assign values to corresponding variables
+        i <- 0
         tmp_values <- c()
         for (x in input$colsForModel) {
             i <- i+1
@@ -244,18 +299,21 @@ shinyServer(function(input, output) {
     
 
     output$predictionOutput <- renderPrint({
-        df <- as.data.frame(t(userInput()))
+        #df <- as.data.frame(t(userInput()))
+        df <- userInput()
+    #    print(df)
         colnames(df) <- input$colsForModel
        
      
-        if(input$varVisitorType == "Logistic regression") {
+        if(input$varVisitorType == "Classification Tree") {
             finalPred <- predict((logisticFitSumm()["CTReeModel"])$CTReeModel, df)
             finalPred
-        } else if(input$varVisitorType == "Logistic regression") {
+        } else if(input$varVisitorType == "Random Forest") {
             finalPred <- predict((logisticFitSumm()["RFModel"])$RFModel, df)
             finalPred
         } else {
             finalPred <- predict((logisticFitSumm()["LRModel"])$LRModel, df)
+            #finalPred <- str(df)
             finalPred
             }
         
@@ -264,6 +322,7 @@ shinyServer(function(input, output) {
     })
     
     logisticFitSumm <- eventReactive(input$runModelsButton, {
+    #logisticFitSumm <- observeEvent(input$runModelsButton, {
         
         set.seed(50)
         #Convert resonse "Revenue" as factor
